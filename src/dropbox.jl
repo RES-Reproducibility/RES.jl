@@ -252,4 +252,32 @@ end
 
 
 
+function db_fr_list(auth::Authorization)
+    res = post_rpc(auth, "file_requests/list_v2")
+    return(res)
+end
+
+function db_fr_create(auth::Authorization, title::String, destination::String)
+    res = post_rpc(auth, "file_requests/create", Dict("title" => title, "destination" => destination))
+    return(res)
+end
+
+function db_fr_update(auth::Authorization, id::String, title::String, open::Bool)
+    res = post_rpc(auth, "file_requests/update", Dict("open" => open, "title" => title, "id" => id))
+    return(res)
+end
+
+function db_fr_delete_closed(auth::Authorization)
+    res = post_rpc(auth, "file_requests/delete_all_closed")
+    return(res)
+end
+
+function db_fr_delete(auth::Authorization, ids::Vector{String})
+    res = post_rpc(auth, "file_requests/delete", Dict("ids" => ids))
+    return(res)
+end
+
+
+
+
 
