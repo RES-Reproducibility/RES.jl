@@ -6,6 +6,9 @@ This helper package implements the RES workflow:
 2. `RES.jl` downloads data for each journal once per day.
 3. `RES.jl` creates a dropbox file request for each paper
 4. `RES.jl` sends an email to main author of paper with instructions and file request link
+5. data editor receives an email when files are uploaded. 
+6. data editor chooses replicator.
+7. `RES.jl` sends email to replicator with link to package, and fills in relevant metadata about assignment on google sheet.
 
 
 ## dependencies
