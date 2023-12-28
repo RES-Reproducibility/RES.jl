@@ -5,6 +5,7 @@ version = "1.0.0-DEV"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 GoogleSheets = "831f653e-6dbc-49a2-ac93-eebfaa09c6e6"
@@ -13,6 +14,7 @@ Infiltrator = "5903a43b-9cc3-4c30-8d17-598619ec4e9b"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 RCall = "6f49c342-dc21-5d91-9882-a32aef131414"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Tidier = "f0413319-3358-4bb0-8e7c-0c83523a93bd"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]

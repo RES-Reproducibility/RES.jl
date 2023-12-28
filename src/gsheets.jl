@@ -1,21 +1,25 @@
 
 
 
-EJ_id() = "1D7nhTs8ao9yIW-PQ_z4zjYNB3pGMWcLWABtaA4I_WL0"
+EJ_id(; test = true) = test ? "1Uw6uj_yZhsri5fjcjqkgHZRYqyjmWOMnPahARcO4aNY" : "1D7nhTs8ao9yIW-PQ_z4zjYNB3pGMWcLWABtaA4I_WL0"
 # Example based upon: # https://developers.google.com/sheets/api/quickstart/python
 
 gs_reader() = sheets_client(AUTH_SCOPE_READONLY)
 gs_readwrite() = sheets_client(AUTH_SCOPE_READWRITE)
 
-function gs_read(; journal = "EJ")
+ej_row_offset() = 900
+ej_cols() = "AB"
+
+function gs_read(;test = true, journal = "EJ", range = "A$(ej_row_offset()):$(ej_cols())1300")
     if journal == "EJ"
-        sheet = Spreadsheet(EJ_id())
-        range = CellRange(sheet, "A2:M1054")
+        sheet = Spreadsheet(EJ_id(test = test))
+        names = "A2:$(ej_cols())2"
+        range = CellRanges(sheet, [names,range])
     else
         println("not done yet")
     end
-    result = get(gs_reader(), range)
-    return DataFrame(result)
+    s = get(gs_reader(), range)
+    @clean_names DataFrame(s[2].values, s[1].values[:])
 end
 
 
@@ -34,6 +38,6 @@ function gs_test()
 end
 
 function fr_write_gsheet(client, sheet, row_number, id)# store fr id somewhere. best on the share google sheet
-    update!(client, CellRange(sheet,"List!M$(row_number)"), fill(id,1,1))  # column M holds the id of the file request
+    update!(client, CellRange(sheet,"List!L$(row_number):M$(row_number)"), ["waiting" id])  # column M holds the id of the file request
 end
 
