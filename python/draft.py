@@ -9,6 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from email.message import EmailMessage
+from pathlib import Path
 
 
 
@@ -16,6 +17,9 @@ from email.message import EmailMessage
 import os.path
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.compose"]
+
+tokenpath = Path.home() / ".julia" / "config" / "DEtoken.json"
+credspath = Path.home() / ".julia" / "config" / "RES-DE-credentials.json"
 
 
 def gmail_create_draft():
@@ -33,19 +37,19 @@ def gmail_create_draft():
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("draftstoken.json", SCOPES)
+    if os.path.exists(tokenpath):
+        creds = Credentials.from_authorized_user_file(tokenpath, SCOPES)
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
-                "credentials.json", SCOPES
+                credspath, SCOPES
             )
         creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open("draftstoken.json", "w") as token:
+        with open(tokenpath, "w") as token:
             token.write(creds.to_json())
     
 

@@ -5,6 +5,7 @@ EJ_id() = "1D7nhTs8ao9yIW-PQ_z4zjYNB3pGMWcLWABtaA4I_WL0"
 # Example based upon: # https://developers.google.com/sheets/api/quickstart/python
 
 gs_reader() = sheets_client(AUTH_SCOPE_READONLY)
+gs_readwrite() = sheets_client(AUTH_SCOPE_READWRITE)
 
 function gs_read(; journal = "EJ")
     if journal == "EJ"
@@ -14,21 +15,25 @@ function gs_read(; journal = "EJ")
         println("not done yet")
     end
     result = get(gs_reader(), range)
-    return result
+    return DataFrame(result)
 end
 
 
-# if isnothing(result.values)
-#     println("No data found.")
-# else
-#     for row in eachrow(result.values)
-#         println("ROW: $row")
-#     end
+function gs_test()
+    client = gs_readwrite()
+    # add a sheet
+    sheet = Spreadsheet(EJ_id())
+    add_sheet!(client, sheet, "test-sheet")
+    println()
+    show(client, sheet, "test-sheet")
 
-#     println("")
-#     println("Name, Major:")
-#     for row in eachrow(result.values)
-#         # Print columns A and E, which correspond to indices 1 and 5.
-#         println("ROW: $(row[1]), $(row[5])")
-#     end
-# end
+    update!(client, CellRange(sheet,"test-sheet!A1"), fill("hello world",1,1))
+
+    delete_sheet!(client, sheet, "test-sheet")
+
+end
+
+function fr_write_gsheet(client, sheet, row_number, id)# store fr id somewhere. best on the share google sheet
+    update!(client, CellRange(sheet,"List!M$(row_number)"), fill(id,1,1))  # column M holds the id of the file request
+end
+
