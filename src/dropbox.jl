@@ -20,7 +20,7 @@ Contains an access token. Almost all Dropbox API functions require
 such a token. Access tokens are like passwords and should be treated
 with the same care.
 """
-struct Authorization
+mutable struct Authorization
     access_token::String
 end
 
@@ -217,25 +217,51 @@ end
 ##################################
 
 
+"""
+    db_refresh_token
+
+Dropbox API tokens expire after a while. This function refreshes the current token.
+reference: https://dropbox.tech/developers/using-oauth-2-0-with-offline-access
+"""
+function db_refresh_token()
+    token_file = get(ENV, "DROPBOXSDK_ACCESS_TOKEN", nothing)
+    secrets_file = get(ENV, "DROPBOX_SECRETS", nothing)
+
+    isfile(token_file) || error("Could not find refresh token file for Dropbox. Please check https://dropbox.tech/developers/using-oauth-2-0-with-offline-access")
+
+    isfile(secrets_file) || error("Could not find refresh token file for Dropbox. Please check https://dropbox.tech/developers/using-oauth-2-0-with-offline-access")
+
+    # read token file content
+    token_data = JSON.parsefile(token_file)
+
+    # read app secrets data
+    app_secrets = JSON.parsefile(secrets_file)
+
+    # make a call against the dropbox api to refresh the token
+    new_token = HTTP.post("https://api.dropbox.com/oauth2/token",
+        body = Dict(
+            "refresh_token" => token_data["refresh_token"],
+            "grant_type" => "refresh_token",
+            "client_id" => app_secrets["client_id"],
+            "client_secret" => app_secrets["client_secret"]
+        ),
+        verbose = 0
+    )
+    # return dict, need to parse
+    s = String(new_token.body)
+    JSON.parse(s)
+end
 
 
 
 """
     db_auth()
 
-Get an authorization token. This function looks for an
-environment variable `DROPBOXSDK_ACCESS_TOKEN`
+Create an Authorization object from the current token.
+Token needs to be refreshed with db_refresh_token() first.
 """
-function db_auth()
-    access_token = nothing
-    if access_token === nothing
-        access_token = get(ENV, "DROPBOXSDK_ACCESS_TOKEN", nothing)
-    end
-    
-    if access_token === nothing
-        error("Could not find access token for Dropbox")
-    end
-    Authorization(access_token)
+function db_auth(token)
+    Authorization(token)
 end
 
 

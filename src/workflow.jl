@@ -1,5 +1,40 @@
 
-get_replicators() = rcopy(R"RESr::read_replicators(refresh = TRUE)")
+
+
+"""
+List Replicator Availability
+"""
+function available_replicators()
+    @chain r[] begin
+        transform("remaining_(de_only)" => (x -> parse.(Int,x)) => "remaining")
+        subset("remaining" => ByRow( >(0) ) )
+        select(:replicator,:name,:surname,"remaining")
+    end
+end
+
+
+"""
+Assign Replicator to paper
+
+1. get availability of replicators
+2. pick one
+3. assign replicator to paper: write email of replicator into google sheet, write date of assignment
+4. send email to replicator, containing dropbox link to package
+"""
+function assign(d)
+
+    # send email via R
+    R"RESr:::ej_replicator_assignment($(d.firstname),$(d.email),$(d.authorlast),$(d.ms),$(d.revision))"
+
+    # update corresponding row in google sheet
+
+    
+end
+
+
+
+
+
 
 
 """
@@ -10,13 +45,10 @@ DE has received reports and sends out emails for RNR to authors:
     3. create file requests for next round
     4. send emails to authors including url of new file request
 """
-function flow_rnrs(; test = false)
-
-    # get fresh copy of data, not via R
-    s = gs_read(test = test)
+function flow_rnrs()
 
     # get the rows where we need to send dropbox link for first package
-    which_package = filter([:ms, :status] => (x,y) -> x != "" && y == "B" , s)
+    which_package = filter([:ms, :status] => (x,y) -> x != "" && y == "B" , d[])
     
     # prompt user: what do you want to do with those?
 
@@ -24,16 +56,15 @@ function flow_rnrs(; test = false)
     # googlesheets.jl API
     # -------------------
     # prepare the gsheet writer API for julia
-    sheet = Spreadsheet(EJ_id(test = test))
+    sheet = Spreadsheet(EJ_id())
     client = gs_readwrite()
     # current cursor in spreadsheet (first row which is empty)
-    cursor = findfirst(s.ms .== "")
+    cursor = findfirst(s[].ms .== "")
 
     # Dropbox API
     # -------------------
     # create file requests
     # append new row to google sheet with correct round number and file request id
-    au = db_auth()
     fr_dict = Dict()
 
     for i in eachrow(which_package)
@@ -47,8 +78,8 @@ function flow_rnrs(; test = false)
         i.arrival_date_package = ""
         i.de_comments = "waiting"
         i.status = ""
-        i.checker1 = ""
-        i.checker2 = ""
+        # i.checker1 = ""  # by default keep the same checker
+        # i.checker2 = ""
         i.date_assigned = ""
         i.date_completed = ""
         i.hours_checker1 = ""
@@ -61,7 +92,7 @@ function flow_rnrs(; test = false)
 
         # new file request
         fname = string(split(i.lastname)[1],"-",i[:ms],"-R",i[:round])
-        fr_dict[fname] = db_fr_create(au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
+        fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
 
         i.dropbox_id = fr_dict[fname]["id"]
 
@@ -93,6 +124,7 @@ function flow_rnrs(; test = false)
 end
 
 
+# this to be changed: grab new entries from specific sheet, send fr link and then copy over to main sheet.
 function flow_file_requests()
 
     d = rcopy(R"RESr::read_list(refresh = TRUE)")
@@ -106,12 +138,11 @@ function flow_file_requests()
 
     # create file requests
     # and log fr id in google sheet
-    au = db_auth()
     fr_dict = Dict()
 
     for i in eachrow(ask_package)
         fname = string(i[:lastname],"-",i[:ms],"-R",i[:round])
-        fr_dict[fname] = db_fr_create(au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
+        fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
         fr_dict[fname]["firstname"] = i[:firstname]
         fr_write_gsheet(client, sheet, i[:row_number], fr_dict[fname]["id"])
         tmp_url = fr_dict[fname]["url"]
@@ -122,48 +153,4 @@ function flow_file_requests()
     @info "File requests and email drafts created"
 
     fr_dict
-end
-
-function flow()
-
-    # use R to get the sheet updated
-    
-
-    # update the sheet via R
-    d = rcopy(R"RESr::read_list(refresh = TRUE)")
-
-    # get the rows where we need to send dropbox link for first package
-    ask_package = filter([:ms, :status, :de_comments] => (x,y,z) -> !ismissing(x) && ismissing(y) && ismissing(z) , d)    
-
-    # prepare the gsheet writer API for julia
-    sheet = Spreadsheet(EJ_id())
-    client = gs_readwrite()
-@infiltrate
-    # create file requests
-    # and log fr id in google sheet
-    au = db_auth()
-    fr_dict = Dict()
-    for i in 1:nrow(ask_package)
-        fname = string(ask_package[i,:lastname],"-",ask_package[i,:ms],"-R",ask_package[i,:round])
-        fr_dict[fname] = db_fr_create(au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
-        fr_write_gsheet(client, sheet, ask_package[i,:row_number], fr_dict[fname]["id"])
-    end
-    
-
-    # came back to DE
-    back_DE = filter([:ms, :status] => (x,y) -> !ismissing(x) && y == "B" , x)    
-
-
-    # or needs work if package has not yet arrived -> send email with dropbox link to authors
-
-    # study readme of package
-
-    # look at available replicators
-
-    # assign to replicators : pick one from list
-
-    # enter replicator into google sheet in correct column, together with date assigned
-
-    # send email to replicator
-
 end
