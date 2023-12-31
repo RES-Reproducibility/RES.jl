@@ -249,7 +249,10 @@ function db_refresh_token()
     )
     # return dict, need to parse
     s = String(new_token.body)
-    JSON.parse(s)
+    js = JSON.parse(s)
+
+    global db_au = db_auth(js["access_token"])
+    nothing
 end
 
 
@@ -313,6 +316,16 @@ function db_fr_close_delete(auth::Authorization, ids::Vector{String})
         db_fr_update(auth,i,false)
     end
     db_fr_delete(auth,ids)
+end
+
+function db_fr_get(auth::Authorization, id::String)
+    res = post_rpc(auth, "file_requests/get", Dict("id" => id))
+    return(res)
+end
+
+function db_fr_hasfile(auth::Authorization, id::String)
+    res = db_fr_get(auth,id)
+    return(res["file_count"] > 0)
 end
 
 

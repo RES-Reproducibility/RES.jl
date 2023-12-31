@@ -1,4 +1,30 @@
 
+case_id(lastname,round,ms) = string(split(lastname)[1],"-",ms,"-R",round)
+
+
+# macros
+
+"""
+    list [n]
+
+list the current list of papers. optionally only the n most recent ones.
+"""
+macro list(n...)
+    if isempty(n)
+        return :(d[])
+    else
+        quote
+            @chain d[] begin
+                subset(:ms =>ByRow(x -> x != ""))
+                last($(n[1]))
+            end
+        end
+    end
+end
+
+macro assign(paper,replicator)
+
+end
 
 
 """
@@ -21,21 +47,77 @@ Assign Replicator to paper
 3. assign replicator to paper: write email of replicator into google sheet, write date of assignment
 4. send email to replicator, containing dropbox link to package
 """
-function assign(d)
+function assign(caseid, repl_email; back = false)
+
+    # get full record
+    i = subset(d[], :case_id => ByRow( ==(caseid)))
+
+    # get full replicator record
+    row = subset(r[], :replicator => ByRow( ==(repl_email)))
 
     # send email via R
-    R"RESr:::ej_replicator_assignment($(d.firstname),$(d.email),$(d.authorlast),$(d.ms),$(d.revision))"
+    if back
+        R"RESr:::ej_replicator_assignment($(row.name),$(row.replicator),$(split(i.lastname[1])[1]),$(i.ms),$(i.round),back = TRUE)"
+    else
+        R"RESr:::ej_replicator_assignment($(row.name),$(row.replicator),$(split(i.lastname[1])[1]),$(i.ms),$(i.round),back = FALSE)"
+    end
 
     # update corresponding row in google sheet
+    # prepare the gsheet writer API
+    sheet = Spreadsheet(EJ_id())
+    client = gs_readwrite()
 
-    
+    #update row
+    i.date_assigned .= string(Dates.today())
+    i.checker1 .= row.replicator
+    i.status .= "A"
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
+
+    @info "$(caseid) assigned to $(row.replicator[1])"
 end
 
 
 
+function poll_waiting(; write = false)
+
+    # prepare the gsheet writer API
+    sheet = Spreadsheet(EJ_id())
+    client = gs_readwrite()
+
+    cands = @chain d[] begin
+        subset(:de_comments => ByRow(x -> x == "waiting"), :status => ByRow(x -> x == ""))
+    end
+    o = Dict(:arrived => String[], :waiting => String[])
+    # check each candidate for file requests which have arrived or not
+    for i in eachrow(cands)
+        if db_fr_hasfile(db_au, i.dropbox_id)
+            # update google sheet
+            i.de_comments = "received"
+            i.arrival_date_package = string(Dates.today())
+            if write update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols()["max"])$(i.row_number)"), reshape(collect(i), 1, :)) end
+            push!(o[:arrived], i.case_id)
+        else
+            push!(o[:waiting], i.case_id)
+        end
+    end
+    o
+end
 
 
-
+function get_case(lastname,round)
+    @chain d[] begin
+        subset(:lastname => ByRow(x -> x == lastname), :round => ByRow(x -> x == round))
+    end
+end
+function get_case_fr_id(lastname,round)
+    @chain d[] begin
+        subset(:lastname => ByRow(x -> x == lastname), :round => ByRow(x -> x == round))
+        select(:lastname,:round,:dropbox_id)
+    end
+end
+function check_fr_case(lastname,round)
+    db_fr_hasfile(db_au, get_case_fr_id(lastname,round).dropbox_id[1])
+end
 
 """
 DE has received reports and sends out emails for RNR to authors:
@@ -91,13 +173,13 @@ function flow_rnrs()
 
 
         # new file request
-        fname = string(split(i.lastname)[1],"-",i[:ms],"-R",i[:round])
+        fname = case_id(i.lastname,i[:ms],i[:round])
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
 
         i.dropbox_id = fr_dict[fname]["id"]
 
         # update the first empty row in the spreadshee with the new entry for this paper
-        update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols())$(i.row_number)"), reshape(collect(i), 1, :))
+        update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols()["max"])$(i.row_number)"), reshape(collect(i), 1, :))
 
         tmp_url = fr_dict[fname]["url"]
 
@@ -111,7 +193,7 @@ function flow_rnrs()
         j.decision = "R"
         j.decision_comment = "resubmit"
 
-        update!(client, CellRange(sheet,"List!A$(j.row_number):$(ej_cols())$(j.row_number)"), reshape(collect(j), 1, :))
+        update!(client, CellRange(sheet,"List!A$(j.row_number):$(ej_cols()["max"])$(j.row_number)"), reshape(collect(j), 1, :))
 
 
 
@@ -141,7 +223,7 @@ function flow_file_requests()
     fr_dict = Dict()
 
     for i in eachrow(ask_package)
-        fname = string(i[:lastname],"-",i[:ms],"-R",i[:round])
+        fname = case_id(i.lastname,i[:ms],i[:round])
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
         fr_dict[fname]["firstname"] = i[:firstname]
         fr_write_gsheet(client, sheet, i[:row_number], fr_dict[fname]["id"])

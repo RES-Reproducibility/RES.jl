@@ -45,14 +45,12 @@ function __init__()
         global istest = false
     end
 
-    d[] = gs_read()
-    r[] = get_replicators()
-    new_arrivals[] = get_new_arrivals()
+    update_ej()
 
     # dropbox auth
     # @info "Refreshing Dropbox token"
-    nt = db_refresh_token()
-    global db_au = db_auth(nt["access_token"])
+    db_refresh_token()
+    
 
 end 
 

@@ -1,5 +1,19 @@
 
+"turn off test mode"
+function prod()
+    global istest = false
+    nothing
+end
 
+
+
+"update EJ google sheets"
+function update_ej()
+    d[] = gs_read()
+    r[] = get_replicators()
+    new_arrivals[] = get_new_arrivals()
+    nothing
+end
 
 EJ_id() = istest ? "1Uw6uj_yZhsri5fjcjqkgHZRYqyjmWOMnPahARcO4aNY" : "1D7nhTs8ao9yIW-PQ_z4zjYNB3pGMWcLWABtaA4I_WL0"
 # Example based upon: # https://developers.google.com/sheets/api/quickstart/python
@@ -7,14 +21,25 @@ EJ_id() = istest ? "1Uw6uj_yZhsri5fjcjqkgHZRYqyjmWOMnPahARcO4aNY" : "1D7nhTs8ao9
 gs_reader() = sheets_client(AUTH_SCOPE_READONLY)
 gs_readwrite() = sheets_client(AUTH_SCOPE_READWRITE)
 
-ej_row_offset() = 900
-ej_cols() = "AB"
 
-function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_cols())1300")
-    println("istest is $istest")
+# EJ spreadsheet row and column constants
+ej_cols() = Dict("max" => "AB", 
+               "de_comments" => "M",
+               "dropbox_id" => "N",
+               "row_number" => "O"
+               )
+ej_row_offset() = 900
+
+
+function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_cols()["max"])1300")
+    if istest
+        println("testing mode")
+    else
+        @warn "not in test mode!"
+    end
     if journal == "EJ"
         sheet = Spreadsheet(EJ_id())
-        names = "List!A2:$(ej_cols())2"
+        names = "List!A2:$(ej_cols()["max"])2"
         range = CellRanges(sheet, [names,range])
     else
         println("not done yet")
@@ -66,6 +91,7 @@ function gs_test()
 end
 
 function fr_write_gsheet(client, sheet, row_number, id)# store fr id somewhere. best on the share google sheet
-    update!(client, CellRange(sheet,"List!L$(row_number):M$(row_number)"), ["waiting" id])  # column M holds the id of the file request
+    ej_ranges = ej_cols()
+    update!(client, CellRange(sheet,"List!$(ej_ranges["de_comments"])$(row_number):$(ej_ranges["dropbox_id"])$(row_number)"), ["waiting" id])  # column M holds the id of the file request
 end
 
