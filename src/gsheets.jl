@@ -90,8 +90,10 @@ function gs_test()
 
 end
 
+
+# this needs to write into the main sheet and delete in the arrivals sheet
 function fr_write_gsheet(client, sheet, row_number, id)# store fr id somewhere. best on the share google sheet
-    ej_ranges = ej_cols()
+    update!(client, CellRange(sheet,"List!A$(row_number):D$(row_number)"), ["waiting" id])  # column M holds the id of the file request
     update!(client, CellRange(sheet,"List!$(ej_ranges["de_comments"])$(row_number):$(ej_ranges["dropbox_id"])$(row_number)"), ["waiting" id])  # column M holds the id of the file request
 end
 

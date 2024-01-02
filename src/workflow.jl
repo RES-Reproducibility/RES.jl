@@ -22,8 +22,13 @@ macro list(n...)
     end
 end
 
-macro assign(paper,replicator)
+"""
+    ln
 
+list new papers.
+"""
+macro ln()
+        :(new_arrivals[])
 end
 
 
@@ -85,14 +90,14 @@ function poll_waiting(; write = false)
     client = gs_readwrite()
 
     cands = @chain d[] begin
-        subset(:de_comments => ByRow(x -> x == "waiting"), :status => ByRow(x -> x == ""))
+        subset(:status => ByRow(x -> x == ""), :dropbox_id => ByRow(x -> x != ""))
     end
+    
     o = Dict(:arrived => String[], :waiting => String[])
     # check each candidate for file requests which have arrived or not
     for i in eachrow(cands)
         if db_fr_hasfile(db_au, i.dropbox_id)
             # update google sheet
-            i.de_comments = "received"
             i.arrival_date_package = string(Dates.today())
             if write update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols()["max"])$(i.row_number)"), reshape(collect(i), 1, :)) end
             push!(o[:arrived], i.case_id)
@@ -141,7 +146,7 @@ function flow_rnrs()
     sheet = Spreadsheet(EJ_id())
     client = gs_readwrite()
     # current cursor in spreadsheet (first row which is empty)
-    cursor = findfirst(s[].ms .== "")
+    cursor = findfirst(d[].ms .== "")
 
     # Dropbox API
     # -------------------
@@ -209,28 +214,39 @@ end
 # this to be changed: grab new entries from specific sheet, send fr link and then copy over to main sheet.
 function flow_file_requests()
 
-    d = rcopy(R"RESr::read_list(refresh = TRUE)")
-
     # get the rows where we need to send dropbox link for first package
-    ask_package = filter([:ms, :status, :de_comments] => (x,y,z) -> !ismissing(x) && ismissing(y) && ismissing(z) , d)    
+    ask_package = new_arrivals[]
 
     # prepare the gsheet writer API for julia
     sheet = Spreadsheet(EJ_id())
     client = gs_readwrite()
+
+
+    cursor = findfirst(d[].ms .== "")
+
+    row_number = cursor + ej_row_offset() - 1
+
 
     # create file requests
     # and log fr id in google sheet
     fr_dict = Dict()
 
     for i in eachrow(ask_package)
-        fname = case_id(i.lastname,i[:ms],i[:round])
+        fname = case_id(i.lastname,i[:round],i[:ms])
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
         fr_dict[fname]["firstname"] = i[:firstname]
-        fr_write_gsheet(client, sheet, i[:row_number], fr_dict[fname]["id"])
+
+        # now write into main sheet
+        update!(client, CellRange(sheet,"List!A$(row_number):D$(row_number)"), reshape(strip.(collect(i[[:ms,:round,:firstname,:lastname]])), 1, :))
+        update!(client, CellRange(sheet,"List!F$(row_number):J$(row_number)"), reshape(strip.(collect(i[5:end])), 1, :))
+        update!(client, CellRange(sheet,"List!M$(row_number):N$(row_number)"), ["waiting" fr_dict[fname]["id"]])
+
         tmp_url = fr_dict[fname]["url"]
 
         # send email via R
         R"RESr:::ej_filerequest($(i[:firstname]),$(i[:email]),$(i[:ms]),$(tmp_url),draft = TRUE)"
+
+        row_number += 1
     end
     @info "File requests and email drafts created"
 
