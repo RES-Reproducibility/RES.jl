@@ -23,7 +23,7 @@ gs_readwrite() = sheets_client(AUTH_SCOPE_READWRITE)
 
 
 # EJ spreadsheet row and column constants
-ej_cols() = Dict("max" => "AB", 
+ej_cols() = Dict("max" => "AD", 
                "de_comments" => "M",
                "dropbox_id" => "N",
                "row_number" => "O"

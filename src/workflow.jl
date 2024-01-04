@@ -35,7 +35,7 @@ end
 """
 List Replicator Availability
 """
-function available_replicators()
+function ar()
     @chain r[] begin
         transform("remaining_(de_only)" => (x -> parse.(Int,x)) => "remaining")
         subset("remaining" => ByRow( >(0) ) )
@@ -82,8 +82,8 @@ function assign(caseid, repl_email; back = false)
 end
 
 
-
-function poll_waiting(; write = false)
+"poll waiting packages"
+function pw(; write = false)
 
     # prepare the gsheet writer API
     sheet = Spreadsheet(EJ_id())
@@ -165,8 +165,8 @@ function flow_rnrs()
         i.arrival_date_package = ""
         i.de_comments = "waiting"
         i.status = ""
-        # i.checker1 = ""  # by default keep the same checker
-        # i.checker2 = ""
+        i.checker1 = "" 
+        i.checker2 = ""
         i.date_assigned = ""
         i.date_completed = ""
         i.hours_checker1 = ""
@@ -178,7 +178,7 @@ function flow_rnrs()
 
 
         # new file request
-        fname = case_id(i.lastname,i[:ms],i[:round])
+        fname = case_id(i.lastname,i[:round],i[:ms])
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
 
         i.dropbox_id = fr_dict[fname]["id"]
@@ -251,4 +251,11 @@ function flow_file_requests()
     @info "File requests and email drafts created"
 
     fr_dict
+end
+
+function db_fr_single_create(last,round,ms)
+    fname = case_id(last,round,ms)
+    d = Dict()
+    d[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
+    d
 end
