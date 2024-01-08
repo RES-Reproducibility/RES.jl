@@ -45,6 +45,37 @@ end
 
 
 """
+Package Good To Go Message
+
+1. get case id of package
+2. send email to author and ej editorial office
+"""
+function g2g(caseid)
+
+    # get full record
+    i = subset(d[], :case_id => ByRow( ==(caseid)))
+
+    R"RESr:::ej_g2g($(strip(i.firstname)),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
+   
+    # update corresponding row in google sheet
+    # prepare the gsheet writer API
+    sheet = Spreadsheet(EJ_id())
+    client = gs_readwrite()
+
+    #update row
+    i.date_processed .= string(Dates.today())
+    i.date_resub .= string(Dates.today())
+    i.decision .= "A"
+    i.decision_comment .= "accept"
+    i.status .= "AP"
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
+
+    @info "$(caseid) good to go draft created."
+end
+
+
+
+"""
 Assign Replicator to paper
 
 1. get availability of replicators
@@ -231,7 +262,10 @@ function flow_file_requests()
     # and log fr id in google sheet
     fr_dict = Dict()
 
+    new_packages_row = 2 # first rows are headers
+
     for i in eachrow(ask_package)
+        new_packages_row += 1
         fname = case_id(i.lastname,i[:round],i[:ms])
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
         fr_dict[fname]["firstname"] = i[:firstname]
@@ -244,11 +278,13 @@ function flow_file_requests()
         tmp_url = fr_dict[fname]["url"]
 
         # send email via R
-        R"RESr:::ej_filerequest($(i[:firstname]),$(i[:email]),$(i[:ms]),$(tmp_url),draft = TRUE)"
+        R"RESr:::ej_filerequest($(i[:firstname]),$(i[:email]),$(i[:ms]),$(tmp_url),draft = FALSE)"
 
+        # clear this row in new-arrivals
+        clear!(client, CellRange(sheet, "New-Arrivals!A$(new_packages_row):I$(new_packages_row)"))
         row_number += 1
     end
-    @info "File requests and email drafts created"
+    @info "File requests created and emails sent"
 
     fr_dict
 end
