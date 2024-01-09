@@ -55,7 +55,6 @@ function g2g(caseid)
     # get full record
     i = subset(d[], :case_id => ByRow( ==(caseid)))
 
-    R"RESr:::ej_g2g($(strip(i.firstname)),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
    
     # update corresponding row in google sheet
     # prepare the gsheet writer API
@@ -70,7 +69,14 @@ function g2g(caseid)
     i.status .= "AP"
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
 
-    @info "$(caseid) good to go draft created."
+    # copy package to good-to-go folder
+    cp(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid), joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid))
+
+
+    R"RESr:::ej_g2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
+
+
+    @info "$(caseid) good to go email sent."
 end
 
 
@@ -106,15 +112,20 @@ function assign(caseid, repl_email; back = false)
     #update row
     i.date_assigned .= string(Dates.today())
     i.checker1 .= row.replicator
+    i.de_comments .= ""
     i.status .= "A"
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
 
-    @info "$(caseid) assigned to $(row.replicator[1])"
+    if back
+        @info "$(caseid) assigned back to $(row.replicator[1])"
+    else
+        @info "$(caseid) assigned back to $(row.replicator[1])"
+    end
 end
 
 
 "poll waiting packages"
-function pw(; write = false)
+function pw()
 
     # prepare the gsheet writer API
     sheet = Spreadsheet(EJ_id())
@@ -130,7 +141,8 @@ function pw(; write = false)
         if db_fr_hasfile(db_au, i.dropbox_id)
             # update google sheet
             i.arrival_date_package = string(Dates.today())
-            if write update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols()["max"])$(i.row_number)"), reshape(collect(i), 1, :)) end
+            i.de_comments = ""
+            update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols()["max"])$(i.row_number)"), reshape(collect(i), 1, :))
             push!(o[:arrived], i.case_id)
         else
             push!(o[:waiting], i.case_id)
@@ -220,7 +232,7 @@ function flow_rnrs()
         tmp_url = fr_dict[fname]["url"]
 
         # send email via R
-        R"RESr:::ej_randr($(i.firstname),$(split(i.lastname)[1]),$(i.email),$(i[:ms]),$(i.title),$(tmp_url),$(j.round))"
+        R"RESr:::ej_randr($(strip(i.firstname)),$(split(i.lastname)[1]),$(i.email),$(i[:ms]),$(i.title),$(tmp_url),$(j.round))"
 
 
         # modify current round and write on spreadsheet. index j!

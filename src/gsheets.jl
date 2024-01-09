@@ -5,6 +5,10 @@ function prod()
     nothing
 end
 
+function reload_all()
+    update_ej()
+    db_refresh_token()
+end
 
 
 "update EJ google sheets"

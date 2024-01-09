@@ -56,7 +56,7 @@ end
 
 # exports
 export db_auth, Authorization, DropboxError
-export @list, @ln, assign, update_ej, pw, ar
+export @list, @ln, assign, update_ej, pw, ar, reload_all, g2g
 
 
 end
