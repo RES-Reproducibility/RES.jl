@@ -16,6 +16,7 @@ macro list(n...)
         quote
             @chain d[] begin
                 subset(:ms =>ByRow(x -> x != ""))
+                select(:case_id,:round,:status,:arrival_date_package)
                 last($(n[1]))
             end
         end
@@ -42,6 +43,56 @@ function ar()
         select(:replicator,:name,:surname,"remaining")
     end
 end
+
+
+"""
+    md5 [caseid]
+
+compute the md5 sum of the replication package with the system call md5sum
+
+TODO get zenodo API to return md5 sum of package and DOI
+"""
+function md5(caseid)
+    dir = joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid)
+
+    # find zip files 
+    zips = filter(x -> endswith(x, ".zip"), readdir(dir)) 
+    if isempty(zips)
+        error("No zip file found in $(dir)")
+    else
+        for z in zips
+            np = mkpath(joinpath(dir,"unzipped"))
+            run(`unzip -qq $(joinpath(dir,z)) -d $np`)
+        end
+        if !isfile(joinpath(dir,"unzipped","3-replication-package.zip"))
+            error("No replication package found in $(joinpath(dir,"unzipped"))")
+        else
+            println("md5sum of replication package $caseid: ")
+            println(read(`md5sum $(joinpath(dir,"unzipped","3-replication-package.zip"))`,String))
+            rm(joinpath(dir,"unzipped"),recursive=true)
+        end
+    end
+end
+
+"send email about zenodo good to go and log DOI in spreadsheet"
+function zg2g(caseid,DOI)
+    # get full record
+    i = subset(d[], :case_id => ByRow( ==(caseid)))
+
+    # update corresponding row in google sheet
+    # prepare the gsheet writer API
+    sheet = Spreadsheet(EJ_id())
+    client = gs_readwrite()
+
+    #update row
+    i.doi_zenodo .= DOI
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
+
+    R"RESr:::ej_zg2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
+
+    @info "$(caseid) zenodo good to go email sent."
+end
+
 
 
 """
