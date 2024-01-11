@@ -32,6 +32,20 @@ macro ln()
         :(new_arrivals[])
 end
 
+"""
+    lb
+
+list back papers.
+"""
+macro lb()
+    quote
+        @chain d[] begin
+            subset(:status =>ByRow(x -> x == "B"))
+            select(:case_id,:round,:status,:arrival_date_package)
+        end
+    end
+end
+
 
 """
 List Replicator Availability
