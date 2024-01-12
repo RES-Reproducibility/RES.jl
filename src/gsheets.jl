@@ -49,7 +49,19 @@ function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_cols()[
         println("not done yet")
     end
     s = get(gs_reader(), range)
-    @clean_names DataFrame(s[2].values, s[1].values[:])
+    d = @clean_names DataFrame(s[2].values, s[1].values[:])
+    # make sure that row_number is correct and sheet is ordered
+    nrows = sum(d.ms .!= "")
+    rn = d[.!(d.ms .== ""), :row_number]
+    @assert all(rn .== string.(Base.range(ej_row_offset(),ej_row_offset() + nrows - 1 )))
+
+    # also that case id is correct whenever last name is given
+    transform!(d, [:lastname, :round, :ms] => 
+        ((x,y,z) -> case_id.(x,y,z)) => :case_id2
+    )
+    @assert all(d[.!(d.lastname .== ""), :case_id] .== d[.!(d.lastname .== ""), :case_id2] )
+    select!(d, Not(:case_id2))
+    d
 end
 
 function get_new_arrivals(;journal = "EJ")

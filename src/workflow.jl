@@ -1,5 +1,12 @@
 
-case_id(lastname,round,ms) = string(split(lastname)[1],"-",ms,"-R",round)
+function case_id(lastname,round,ms)
+    if lastname == ""
+        ""
+    else
+        ln = split(strip(lastname))[1]
+        string(ln,"-",ms,"-R",round)
+    end
+end
 
 
 # macros
@@ -16,11 +23,25 @@ macro list(n...)
         quote
             @chain d[] begin
                 subset(:ms =>ByRow(x -> x != ""))
-                select(:case_id,:round,:status,:arrival_date_package)
+                select(:case_id,:round,:status,:checker1)
                 last($(n[1]))
             end
         end
     end
+end
+
+"""
+    find lastname
+
+list rows with lastname
+"""
+macro find(n)
+        quote
+            @chain d[] begin
+                subset(:lastname =>ByRow(==($n)))
+                select(:case_id,:round,:status,:checker1)
+            end
+        end
 end
 
 """
@@ -58,6 +79,16 @@ function ar()
     end
 end
 
+macro handler(caseid)
+    quote
+        ms = split($caseid,"-")[2]
+        @chain d[] begin
+            subset(:ms => ByRow(x -> x == ms))
+            select(:case_id,:checker1)
+        end
+    end
+end
+
 
 """
     md5 [caseid]
@@ -68,23 +99,44 @@ TODO get zenodo API to return md5 sum of package and DOI
 """
 function md5(caseid)
     dir = joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid)
-
     # find zip files 
     zips = filter(x -> endswith(x, ".zip"), readdir(dir)) 
     if isempty(zips)
-        error("No zip file found in $(dir)")
+        @info "No zip file found in $(dir)"
+        for (root, dirs, files) in walkdir(dir)
+            for f in files
+                if contains(f, r"replication|package")
+                    println("md5sum of replication package $caseid: ")
+                    cd(root)
+                    println(read(`md5sum $f`,String))
+                end
+            end
+        end
     else
         for z in zips
             np = mkpath(joinpath(dir,"unzipped"))
-            run(`unzip -qq $(joinpath(dir,z)) -d $np`)
+            osx = joinpath(np,"__MACOSX")
+            run(`unzip -o -qq $(joinpath(dir,z)) -d $np`)
+            run(`rm -rf $osx`)
         end
-        if !isfile(joinpath(dir,"unzipped","3-replication-package.zip"))
-            error("No replication package found in $(joinpath(dir,"unzipped"))")
-        else
-            println("md5sum of replication package $caseid: ")
-            println(read(`md5sum $(joinpath(dir,"unzipped","3-replication-package.zip"))`,String))
-            rm(joinpath(dir,"unzipped"),recursive=true)
+        iter = walkdir(joinpath(dir,"unzipped"))
+        while !isempty(iter)
+            (root, di, files) = first(iter)
+            println(files)
+            println(di)
+            # for d in di
+            #     println("current dir is $(joinpath(dir,root,d))")
+                for f in files
+                    println("current file is $f")
+                    if contains(f, r"replication|package")
+                        println("md5sum of replication package $caseid: ")
+                        println(read(`md5sum $(joinpath(root,f))`,String))
+                        return 0
+                    end
+                end
+            # end
         end
+        error("no package found")
     end
 end
 
@@ -302,6 +354,8 @@ function flow_rnrs()
 
         # modify current round and write on spreadsheet. index j!
         j.status = "R"
+        j.round = string(parse(Int,j.round) + 1)
+        j.case_id = case_id(j.lastname,j.round,j.ms)
         j.date_processed = string(Dates.today())
         j.decision = "R"
         j.decision_comment = "resubmit"
@@ -329,11 +383,9 @@ function flow_file_requests()
     sheet = Spreadsheet(EJ_id())
     client = gs_readwrite()
 
-
     cursor = findfirst(d[].ms .== "")
 
     row_number = cursor + ej_row_offset() - 1
-
 
     # create file requests
     # and log fr id in google sheet
@@ -343,7 +395,7 @@ function flow_file_requests()
 
     for i in eachrow(ask_package)
         new_packages_row += 1
-        fname = case_id(i.lastname,i[:round],i[:ms])
+        fname = case_id(i.lastname,i.round,i.ms)
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
         fr_dict[fname]["firstname"] = i[:firstname]
 
