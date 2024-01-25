@@ -38,10 +38,20 @@ list rows with lastname
 macro find(n)
         quote
             @chain d[] begin
-                subset(:lastname =>ByRow(==($n)))
+                subset(:case_id => ByRow( contains($n)) )
                 select(:case_id,:round,:status,:checker1)
             end
         end
+end
+
+macro findn(n::Symbol)
+    ex = quote
+        @chain d[] begin
+            subset(:case_id => ByRow( contains($n)) )
+            select(:case_id,:round,:status,:checker1)
+        end
+    end
+    esc(ex)
 end
 
 """
@@ -101,6 +111,8 @@ function md5(caseid)
     dir = joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid)
     # find zip files 
     zips = filter(x -> endswith(x, ".zip"), readdir(dir)) 
+
+    # what if 3-replication-package.zip is in root already?!
     if isempty(zips)
         @info "No zip file found in $(dir)"
         for (root, dirs, files) in walkdir(dir)
@@ -167,7 +179,7 @@ Package Good To Go Message
 1. get case id of package
 2. send email to author and ej editorial office
 """
-function g2g(caseid)
+function g2g(caseid; copy = true)
 
     # get full record
     i = subset(d[], :case_id => ByRow( ==(caseid)))
@@ -187,7 +199,7 @@ function g2g(caseid)
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
 
     # copy package to good-to-go folder
-    cp(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid), joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid))
+    if copy cp(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid), joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid), force = true) end
 
 
     R"RESr:::ej_g2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
@@ -196,6 +208,24 @@ function g2g(caseid)
     @info "$(caseid) good to go email sent."
 end
 
+
+"""
+Re-Assign Package to previous replicator
+
+"""
+function reassign(name)
+    f = @findn name
+    ci = last(f.case_id)
+    re = last(f.checker1[f.checker1 .!= ""])
+
+    a = ask(DefaultPrompt(["y", "no"], 1, "Reassign $ci to replicator $re?"))
+    
+    if a == "y"
+        assign(ci,re,back = true)
+    else
+        @info "choose another replicator!"
+    end
+end
 
 
 """
@@ -206,7 +236,7 @@ Assign Replicator to paper
 3. assign replicator to paper: write email of replicator into google sheet, write date of assignment
 4. send email to replicator, containing dropbox link to package
 """
-function assign(caseid, repl_email; back = false)
+function assign(caseid, repl_email; back = false, draft = false)
 
     # get full record
     i = subset(d[], :case_id => ByRow( ==(caseid)))
@@ -215,11 +245,8 @@ function assign(caseid, repl_email; back = false)
     row = subset(r[], :replicator => ByRow( ==(repl_email)))
 
     # send email via R
-    if back
-        R"RESr:::ej_replicator_assignment($(row.name),$(row.replicator),$(split(i.lastname[1])[1]),$(i.ms),$(i.round),back = TRUE)"
-    else
-        R"RESr:::ej_replicator_assignment($(row.name),$(row.replicator),$(split(i.lastname[1])[1]),$(i.ms),$(i.round),back = FALSE)"
-    end
+    R"RESr:::ej_replicator_assignment($(row.name),$(row.replicator),$(split(i.lastname[1])[1]),$(i.ms),$(i.round),back = $back, draft = $draft)"
+   
 
     # update corresponding row in google sheet
     # prepare the gsheet writer API
@@ -233,11 +260,8 @@ function assign(caseid, repl_email; back = false)
     i.status .= "A"
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
 
-    if back
-        @info "$(caseid) assigned back to $(row.replicator[1])"
-    else
-        @info "$(caseid) assigned back to $(row.replicator[1])"
-    end
+
+    @info "$(caseid) assigned to $(row.replicator[1])"
 end
 
 
@@ -321,6 +345,7 @@ function flow_rnrs()
         # update the row in the spreadsheet for the new round
         i.round = string(parse(Int,i.round) + 1)
         i.row_number = string(cursor + ej_row_offset() - 1)
+        i.case_id = case_id(i.lastname,i.round,i.ms)
         i.arrival_date_ee = ""
         i.arrival_date_package = ""
         i.de_comments = "waiting"
@@ -354,7 +379,6 @@ function flow_rnrs()
 
         # modify current round and write on spreadsheet. index j!
         j.status = "R"
-        j.round = string(parse(Int,j.round) + 1)
         j.case_id = case_id(j.lastname,j.round,j.ms)
         j.date_processed = string(Dates.today())
         j.decision = "R"

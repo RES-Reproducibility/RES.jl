@@ -10,6 +10,7 @@ using Infiltrator
 using TidierData: @clean_names
 using Chain
 using Dates
+using Term.Prompts
 
 include("dropbox.jl")
 include("gsheets.jl")
