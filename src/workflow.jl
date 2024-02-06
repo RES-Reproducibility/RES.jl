@@ -39,7 +39,7 @@ macro find(n)
         quote
             @chain d[] begin
                 subset(:case_id => ByRow( contains($n)) )
-                select(:case_id,:round,:status,:checker1)
+                select(:case_id,:round,:status,:checker1,:email)
             end
         end
 end
