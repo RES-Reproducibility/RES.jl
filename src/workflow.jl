@@ -400,6 +400,8 @@ end
 # this to be changed: grab new entries from specific sheet, send fr link and then copy over to main sheet.
 function flow_file_requests()
 
+    update_ej()
+
     # get the rows where we need to send dropbox link for first package
     ask_package = new_arrivals[]
 
@@ -422,6 +424,9 @@ function flow_file_requests()
         fname = case_id(i.lastname,i.round,i.ms)
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
         fr_dict[fname]["firstname"] = i[:firstname]
+
+        # clean email field
+        i.email = replace(i.email, r"\n" => "")
 
         # now write into main sheet
         update!(client, CellRange(sheet,"List!A$(row_number):D$(row_number)"), reshape(strip.(collect(i[[:ms,:round,:firstname,:lastname]])), 1, :))
