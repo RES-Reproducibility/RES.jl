@@ -79,6 +79,37 @@ end
 
 
 """
+    lw
+
+list waiting papers.
+"""
+function lw1()
+    @chain d[] begin
+        subset(:de_comments => ByRow(==("waiting")), :round => ByRow(==("1")))
+        select(:case_id,:round,:status,:arrival_date_package,:email)
+    end
+end
+
+macro lw(r...)
+    if isempty(r)
+        quote 
+            @chain d[] begin
+                subset(:de_comments =>ByRow(==("waiting")))
+                select(:case_id,:round,:status,:arrival_date_package,:email)
+            end
+        end
+    else
+        quote
+            @chain d[] begin
+                subset(:de_comments => ByRow(==("waiting")), :round => ByRow(==($(r[1]))))
+                select(:case_id,:round,:status,:arrival_date_package,:email)
+            end
+        end
+    end        
+end
+
+
+"""
 List Replicator Availability
 """
 function ar()
