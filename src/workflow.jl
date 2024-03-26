@@ -303,6 +303,8 @@ function pw()
     sheet = Spreadsheet(EJ_id())
     client = gs_readwrite()
 
+    update_ej()
+
     cands = @chain d[] begin
         subset(:status => ByRow(x -> x == ""), :dropbox_id => ByRow(x -> x != ""))
     end
