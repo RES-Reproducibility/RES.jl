@@ -10,6 +10,11 @@ function reload_all()
     db_refresh_token()
 end
 
+function reset_gs!()
+    rm(joinpath(ENV["HOME"],".julia","config","google_sheets","google_sheets_token.0.pickle"),force = true)
+    rm(joinpath(ENV["HOME"],".julia","config","google_sheets","google_sheets_token.1.pickle"),force = true)
+end
+
 
 "update EJ google sheets"
 function update_ej()
@@ -27,15 +32,17 @@ gs_readwrite() = sheets_client(AUTH_SCOPE_READWRITE)
 
 
 # EJ spreadsheet row and column constants
-ej_cols() = Dict("max" => "AD", 
+ej_ranges() = Dict("maxcol" => "AD", 
                "de_comments" => "M",
                "dropbox_id" => "N",
-               "row_number" => "O"
+               "row_number" => "O",
+               "maxrow" => 1300,
                )
-ej_row_offset() = 900
+ej_row_offset() = 900  # do not read first 900 rows
 
 
-function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_cols()["max"])1300")
+
+function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_ranges()["maxcol"])$(ej_ranges()["maxrow"])")
     if istest
         println("testing mode")
     else
@@ -43,7 +50,7 @@ function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_cols()[
     end
     if journal == "EJ"
         sheet = Spreadsheet(EJ_id())
-        names = "List!A2:$(ej_cols()["max"])2"
+        names = "List!A2:$(ej_ranges()["maxcol"])2"
         range = CellRanges(sheet, [names,range])
     else
         println("not done yet")
@@ -59,7 +66,12 @@ function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_cols()[
     transform!(d, [:lastname, :round, :ms] => 
         ((x,y,z) -> case_id.(x,y,z)) => :case_id2
     )
-    @assert all(d[.!(d.lastname .== ""), :case_id] .== d[.!(d.lastname .== ""), :case_id2] )
+    # return d
+    # TODO compute a case id for all missing lastnames as well
+    assert_ids = findall(d[.!(d.lastname .== ""), :case_id] .!= d[.!(d.lastname .== ""), :case_id2])
+    if length(assert_ids) > 0
+        @error "wrong case id" d[.!(d.lastname .== ""),:][assert_ids, [:case_id, :case_id2, :row_number]] 
+    end
     select!(d, Not(:case_id2))
     d
 end

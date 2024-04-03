@@ -195,7 +195,7 @@ function zg2g(caseid,DOI)
 
     #update row
     i.doi_zenodo .= DOI
-    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 
     R"RESr:::ej_zg2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
 
@@ -227,7 +227,7 @@ function g2g(caseid; copy = true)
     i.decision .= "A"
     i.decision_comment .= "accept"
     i.status .= "AP"
-    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 
     # copy package to good-to-go folder
     if copy cp(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid), joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid), force = true) end
@@ -289,10 +289,26 @@ function assign(caseid, repl_email; back = false, draft = false)
     i.checker1 .= row.replicator
     i.de_comments .= ""
     i.status .= "A"
-    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_cols()["max"])$(i.row_number[1])"), Array(i))
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 
 
     @info "$(caseid) assigned to $(row.replicator[1])"
+end
+
+
+function set_status(caseid, status)
+
+    # get full record
+    i = subset(d[], :case_id => ByRow( ==(caseid)))
+
+    # update corresponding row in google sheet
+    # prepare the gsheet writer API
+    sheet = Spreadsheet(EJ_id())
+    client = gs_readwrite()
+
+    #update row
+    i.status .= status
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 end
 
 
@@ -316,7 +332,7 @@ function pw()
             # update google sheet
             i.arrival_date_package = string(Dates.today())
             i.de_comments = ""
-            update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols()["max"])$(i.row_number)"), reshape(collect(i), 1, :))
+            update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_ranges()["maxcol"])$(i.row_number)"), reshape(collect(i), 1, :))
             push!(o[:arrived], i.case_id)
         else
             push!(o[:waiting], i.case_id)
@@ -402,7 +418,7 @@ function flow_rnrs()
         i.dropbox_id = fr_dict[fname]["id"]
 
         # update the first empty row in the spreadshee with the new entry for this paper
-        update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_cols()["max"])$(i.row_number)"), reshape(collect(i), 1, :))
+        update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_ranges()["maxcol"])$(i.row_number)"), reshape(collect(i), 1, :))
 
         tmp_url = fr_dict[fname]["url"]
 
@@ -417,7 +433,7 @@ function flow_rnrs()
         j.decision = "R"
         j.decision_comment = "resubmit"
 
-        update!(client, CellRange(sheet,"List!A$(j.row_number):$(ej_cols()["max"])$(j.row_number)"), reshape(collect(j), 1, :))
+        update!(client, CellRange(sheet,"List!A$(j.row_number):$(ej_ranges()["maxcol"])$(j.row_number)"), reshape(collect(j), 1, :))
 
 
 
