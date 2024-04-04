@@ -453,6 +453,7 @@ function flow_file_requests()
 
     # get the rows where we need to send dropbox link for first package
     ask_package = new_arrivals[]
+    ask_package.cid .= ""  # empty case id
 
     # prepare the gsheet writer API for julia
     sheet = Spreadsheet(EJ_id())
@@ -477,8 +478,12 @@ function flow_file_requests()
         # clean email field
         i.email = replace(i.email, r"\n" => "")
 
+        i.round = 1
+        # compute caseid
+        i.cid = case_id(i.lastname,i.round,i.ms)
+
         # now write into main sheet
-        update!(client, CellRange(sheet,"List!A$(row_number):D$(row_number)"), reshape(strip.(collect(i[[:ms,:round,:firstname,:lastname]])), 1, :))
+        update!(client, CellRange(sheet,"List!A$(row_number):E$(row_number)"), reshape(strip.(collect(i[[:ms,:round,:firstname,:lastname,:cid]])), 1, :))
         update!(client, CellRange(sheet,"List!F$(row_number):J$(row_number)"), reshape(strip.(collect(i[5:end])), 1, :))
         update!(client, CellRange(sheet,"List!M$(row_number):N$(row_number)"), ["waiting" fr_dict[fname]["id"]])
 
