@@ -446,6 +446,90 @@ function flow_rnrs()
 end
 
 
+"""
+RnR without report: request new submission for caseid
+"""
+function quick_rnr(caseid::Vector{String})
+
+    # get the rows where we need to send dropbox link for first package
+    which_package = subset(d[], :case_id => ByRow(∈(caseid)))
+    
+    # prompt user: what do you want to do with those?
+
+
+    # googlesheets.jl API
+    # -------------------
+    # prepare the gsheet writer API for julia
+    sheet = Spreadsheet(EJ_id())
+    client = gs_readwrite()
+    # current cursor in spreadsheet (first row which is empty)
+    cursor = findfirst(d[].ms .== "")
+
+    # Dropbox API
+    # -------------------
+    # create file requests
+    # append new row to google sheet with correct round number and file request id
+    fr_dict = Dict()
+
+    for i in eachrow(which_package)
+        j = deepcopy(i) # on this row we have to set status to "R" once we are done and set the date of processing
+
+
+        # update the row in the spreadsheet for the new round
+        i.round = string(parse(Int,i.round) + 1)
+        i.row_number = string(cursor + ej_row_offset() - 1)
+        i.case_id = case_id(i.lastname,i.round,i.ms)
+        i.arrival_date_ee = ""
+        i.arrival_date_package = ""
+        i.de_comments = "waiting"
+        i.status = ""
+        i.checker1 = "" 
+        i.checker2 = ""
+        i.date_assigned = ""
+        i.date_completed = ""
+        i.hours_checker1 = ""
+        i.hours_checker2 = ""
+        i.successful = ""
+        i.software = ""
+        i.data_statement = ""
+        i.comments = ""
+
+
+        # new file request
+        fname = case_id(i.lastname,i[:round],i[:ms])
+        fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
+
+        i.dropbox_id = fr_dict[fname]["id"]
+
+        # update the first empty row in the spreadshee with the new entry for this paper
+        update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_ranges()["maxcol"])$(i.row_number)"), reshape(collect(i), 1, :))
+
+        tmp_url = fr_dict[fname]["url"]
+
+        # send email via R
+        R"RESr:::ej_randr($(strip(i.firstname)),$(split(i.lastname)[1]),$(i.email),$(i[:ms]),$(i.title),$(tmp_url),$(j.round), attachment = FALSE)"
+
+
+        # modify current round and write on spreadsheet. index j!
+        j.status = "R"
+        j.case_id = case_id(j.lastname,j.round,j.ms)
+        j.date_processed = string(Dates.today())
+        j.decision = "R"
+        j.decision_comment = "resubmit"
+
+        update!(client, CellRange(sheet,"List!A$(j.row_number):$(ej_ranges()["maxcol"])$(j.row_number)"), reshape(collect(j), 1, :))
+
+
+
+        # update cursor
+        cursor = cursor + 1
+    end
+    @info "Rnr's sent"
+
+    fr_dict
+end
+
+
 # this to be changed: grab new entries from specific sheet, send fr link and then copy over to main sheet.
 function flow_file_requests()
 
