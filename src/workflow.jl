@@ -108,6 +108,22 @@ macro lw(r...)
     end        
 end
 
+gs_dates
+
+"""
+List Replicator Ongoing time
+How long has each replicator had their current package
+"""
+function rwait()
+    @chain d[] begin
+        subset(:date_assigned => ByRow(!=("")), :date_completed => ByRow(==("")))
+        select(:case_id, :checker1,:date_assigned,:status)
+        transform(:date_assigned => (x -> Dates.today() .- Dates.Date.(x,gs_dates())) => :days_in_progress)
+        sort(:days_in_progress)
+    end
+
+end
+
 
 """
 List Replicator Availability
@@ -562,13 +578,12 @@ function flow_file_requests()
         # clean email field
         i.email = replace(i.email, r"\n" => "")
 
-        i.round = 1
+        i.round = "1"
         # compute caseid
         i.cid = case_id(i.lastname,i.round,i.ms)
 
         # now write into main sheet
-        update!(client, CellRange(sheet,"List!A$(row_number):E$(row_number)"), reshape(strip.(collect(i[[:ms,:round,:firstname,:lastname,:cid]])), 1, :))
-        update!(client, CellRange(sheet,"List!F$(row_number):J$(row_number)"), reshape(strip.(collect(i[5:end])), 1, :))
+        update!(client, CellRange(sheet,"List!A$(row_number):J$(row_number)"), reshape(strip.(collect(i[[:ms,:round,:firstname,:lastname,:cid,:title, :email, :editor, :data_policy, :arrival_date_ee,]])), 1, :))
         update!(client, CellRange(sheet,"List!M$(row_number):N$(row_number)"), ["waiting" fr_dict[fname]["id"]])
 
         tmp_url = fr_dict[fname]["url"]

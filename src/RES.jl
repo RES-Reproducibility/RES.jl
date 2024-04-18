@@ -46,7 +46,12 @@ function __init__()
         global istest = false
     end
 
-    update_ej()
+    try
+        update_ej()
+    catch
+        reset_gs!()
+        update_ej()
+    end
 
     # dropbox auth
     # @info "Refreshing Dropbox token"

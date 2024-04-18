@@ -40,7 +40,8 @@ ej_ranges() = Dict("maxcol" => "AD",
                )
 ej_row_offset() = 900  # do not read first 900 rows
 
-
+"Dates parsed as strings in this format from gsheet"
+gs_dates() = dateformat"d-u-YYYY"
 
 function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_ranges()["maxcol"])$(ej_ranges()["maxrow"])")
     if istest
