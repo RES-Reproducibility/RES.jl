@@ -4,7 +4,7 @@ function case_id(lastname,round,ms)
         ""
     else
         ln = split(strip(lastname))[1]
-        string(ln,"-",ms,"-R",round)
+        string(ln,"-",strip(ms),"-R",strip(round))
     end
 end
 
@@ -583,7 +583,10 @@ function flow_file_requests()
         i.cid = case_id(i.lastname,i.round,i.ms)
 
         # now write into main sheet
-        update!(client, CellRange(sheet,"List!A$(row_number):J$(row_number)"), reshape(strip.(collect(i[[:ms,:round,:firstname,:lastname,:cid,:title, :email, :editor, :data_policy, :arrival_date_ee,]])), 1, :))
+        # clean up this data first 
+        invec = collect(i[[:ms,:round,:firstname,:lastname,:cid,:title, :email, :editor, :data_policy, :arrival_date_ee,]])
+        iinvec = replace(invec, "\t" => "", "\n" => "")
+        update!(client, CellRange(sheet,"List!A$(row_number):J$(row_number)"), reshape(strip.(iinvec), 1, :))
         update!(client, CellRange(sheet,"List!M$(row_number):N$(row_number)"), ["waiting" fr_dict[fname]["id"]])
 
         tmp_url = fr_dict[fname]["url"]

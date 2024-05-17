@@ -47,15 +47,17 @@ function __init__()
     end
 
     try
-        update_ej()
+        update_ej()    
+        db_refresh_token()
     catch
         reset_gs!()
         update_ej()
+        db_refresh_token()
     end
 
     # dropbox auth
     # @info "Refreshing Dropbox token"
-    db_refresh_token()
+
     
 
 end 
