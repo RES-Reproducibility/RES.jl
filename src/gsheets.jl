@@ -73,6 +73,16 @@ function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_ranges(
     if length(assert_ids) > 0
         @error "wrong case id" d[.!(d.lastname .== ""),:][assert_ids, [:case_id, :case_id2, :row_number]] 
     end
+
+    mydate(x) = Date(x, "d-u-yyyy")
+    mydatemissing(x) = passmissing(mydate) 
+
+    # fix up dates would look like this (not doing this now)
+    # transform!(d,
+    #     [:date_assigned, :date_completed] .=> (y -> passmissing.(ifelse.(y .== "", missing, y))) .=>
+    #     [:date_assigned, :date_completed]
+    #     )
+
     select!(d, Not(:case_id2))
     d
 end

@@ -11,10 +11,12 @@ using TidierData: @clean_names
 using Chain
 using Dates
 using Term.Prompts
+import Pkg.generate
 
 include("dropbox.jl")
 include("gsheets.jl")
 include("workflow.jl")
+include("snippets.jl")
 
 
 # package-wide variables

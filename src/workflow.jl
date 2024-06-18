@@ -9,6 +9,16 @@ function case_id(lastname,round,ms)
 end
 
 
+function count_published_ej()
+    @chain RES.d[] begin
+       subset(:status => ByRow(∈(["NT","P","p"])), :date_assigned => ByRow(!=("")))
+       transform(:date_assigned => (x -> year.(Date.(x, "d-u-yyyy"))) => :year_assigned)
+       groupby(:year_assigned)
+       combine(nrow)
+    end
+end
+
+
 # macros
 
 """
@@ -36,12 +46,28 @@ end
 list rows with lastname
 """
 macro find(n)
-        quote
-            @chain d[] begin
-                subset(:case_id => ByRow( contains($n)) )
-                select(:case_id,:round,:status,:checker1,:email)
-            end
+    quote
+        @chain d[] begin
+            subset(:case_id => ByRow( contains($n)) )
+            select(:case_id,:round,:status,:checker1,:email)
         end
+    end
+end
+
+"""
+    find active relicator jobs
+
+lists ongoing packages (i.e not published)
+"""
+macro findar(n)
+    quote
+        @chain d[] begin
+            subset(:checker1 => ByRow( contains($n) ), :status => ByRow(∈(["A","B","R"])))
+            transform(:date_assigned => (x -> Dates.today() .- Dates.Date.(x,gs_dates())) => :days_since_assigned)
+            select(:days_in_progress,:case_id,:round,:status,:checker1,:checker2,)
+            sort(:days_since_assigned)
+        end
+    end
 end
 
 macro findn(n::Symbol)
@@ -242,6 +268,7 @@ function g2g(caseid; copy = true)
     i.date_resub .= string(Dates.today())
     i.decision .= "A"
     i.decision_comment .= "accept"
+    i.de_comments .= ""
     i.status .= "AP"
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 
@@ -571,14 +598,16 @@ function flow_file_requests()
 
     for i in eachrow(ask_package)
         new_packages_row += 1
+
+        i.round = "1"
+        i.lastname = strip(i.lastname, ['\n','\t',' '])
         fname = case_id(i.lastname,i.round,i.ms)
         fr_dict[fname] = db_fr_create(db_au, string("EJ Replication Package: ",fname), joinpath("/EJ/EJ-2-submitted-replication-packages",fname))
         fr_dict[fname]["firstname"] = i[:firstname]
 
         # clean email field
-        i.email = replace(i.email, r"\n" => "")
+        i.email = replace(i.email, r"\n|\t" => "")
 
-        i.round = "1"
         # compute caseid
         i.cid = case_id(i.lastname,i.round,i.ms)
 
