@@ -13,6 +13,7 @@ end
 function reset_gs!()
     rm(joinpath(ENV["HOME"],".julia","config","google_sheets","google_sheets_token.0.pickle"),force = true)
     rm(joinpath(ENV["HOME"],".julia","config","google_sheets","google_sheets_token.1.pickle"),force = true)
+    rm(joinpath(ENV["HOME"],".julia","config","google_sheets","google_sheets_token.10.pickle"),force = true)
 end
 
 
@@ -36,7 +37,7 @@ ej_ranges() = Dict("maxcol" => "AD",
                "de_comments" => "M",
                "dropbox_id" => "N",
                "row_number" => "O",
-               "maxrow" => 1300,
+               "maxrow" => 1800,
                )
 ej_row_offset() = 900  # do not read first 900 rows
 

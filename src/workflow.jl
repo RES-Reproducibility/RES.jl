@@ -64,7 +64,7 @@ macro findar(n)
         @chain d[] begin
             subset(:checker1 => ByRow( contains($n) ), :status => ByRow(∈(["A","B","R"])))
             transform(:date_assigned => (x -> Dates.today() .- Dates.Date.(x,gs_dates())) => :days_since_assigned)
-            select(:days_in_progress,:case_id,:round,:status,:checker1,:checker2,)
+            select(:days_since_assigned,:case_id,:round,:status,:checker1,:checker2,)
             sort(:days_since_assigned)
         end
     end
@@ -244,7 +244,20 @@ function zg2g(caseid,DOI)
     @info "$(caseid) zenodo good to go email sent."
 end
 
+"set case id status in spreadsheet"
+function set(caseid,status)
+    # get full record
+    i = subset(d[], :case_id => ByRow( ==(caseid)))
 
+    # update corresponding row in google sheet
+    # prepare the gsheet writer API
+    sheet = Spreadsheet(EJ_id())
+    client = gs_readwrite()
+
+    #update row
+    i.status .= status
+    update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
+end
 
 """
 Package Good To Go Message

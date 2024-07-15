@@ -57,11 +57,6 @@ function __init__()
         db_refresh_token()
     end
 
-    # dropbox auth
-    # @info "Refreshing Dropbox token"
-
-    
-
 end 
 
 # exports
