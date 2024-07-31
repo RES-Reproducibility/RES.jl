@@ -12,6 +12,7 @@ using Chain
 using Dates
 using Term.Prompts
 import Pkg.generate
+using Humanize
 
 include("dropbox.jl")
 include("gsheets.jl")

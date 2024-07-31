@@ -225,7 +225,12 @@ function md5(caseid)
     end
 end
 
-"send email about zenodo good to go and log DOI in spreadsheet"
+"""
+1. send email about zenodo good to go and 
+2. log DOI in spreadsheet
+3. move all reports into archive
+4. list all previous round packages to be deleted from dropbox
+"""
 function zg2g(caseid,DOI)
     # get full record
     i = subset(d[], :case_id => ByRow( ==(caseid)))
@@ -240,8 +245,41 @@ function zg2g(caseid,DOI)
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 
     R"RESr:::ej_zg2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
-
     @info "$(caseid) zenodo good to go email sent."
+
+
+    cleanup!(caseid)
+
+    @info "cleanup done for $caseid"
+
+end
+
+function cleanup!(caseid; op = mv)
+    i = subset(d[], :case_id => ByRow( ==(caseid)))
+    spath = joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages")
+    dirs = readdir(spath)
+    dd = dirs[contains.(dirs,i.ms)]
+
+    # check that latest version exists as copy in 6-EJ-good-to-go
+    # and move there
+    if ispath(joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid))
+        for id in dd
+            op(joinpath(spath,id),joinpath(spath,"archive",id))
+        end
+        @info "moved folders to archive" dd
+    else
+        @warn "no copy for $caseid found in $(joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go"))"
+    end
+
+    # also move reports to archive
+    rpath = joinpath(ENV["JL_DB_EJ"], "EJ-3-replication-reports","DE-processed")
+    rapath = joinpath(ENV["JL_DB_EJ"], "EJ-3-replication-reports","DE-processed-archive")
+    reps = readdir(rpath)
+    dr = reps[contains.(reps,i.ms)]
+    for id in dr
+        op(joinpath(rpath,id),joinpath(rapath,id))
+    end
+    @info "moved reports to archive" dr
 end
 
 "set case id status in spreadsheet"
@@ -259,18 +297,37 @@ function set(caseid,status)
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 end
 
+"recursively traverse a directory and compute total file size"
+function dirsize(dirpath)
+    total = 0
+    for (root,dirs,files) in walkdir(dirpath)
+        total += filesize(root)
+        for f in files
+            file = joinpath(root,f)
+            size = filesize(file)
+            total += size
+        end
+    end
+    total
+end
+
+
 """
 Package Good To Go Message
 
 1. get case id of package
 2. send email to author and ej editorial office
 """
-function g2g(caseid; copy = true)
+function g2g(caseid; copy = true, draft = false)
 
     # get full record
     i = subset(d[], :case_id => ByRow( ==(caseid)))
 
-   
+    fsize = dirsize(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid))
+    if fsize < 3000000
+        error("$caseid package has less than $(Humanize.datasize(fsize)) hence is probably online only in dropbox ATM")
+    end
+
     # update corresponding row in google sheet
     # prepare the gsheet writer API
     sheet = Spreadsheet(EJ_id())
@@ -289,7 +346,7 @@ function g2g(caseid; copy = true)
     if copy cp(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid), joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid), force = true) end
 
 
-    R"RESr:::ej_g2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
+    R"RESr:::ej_g2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round), draft = $(draft))"
 
 
     @info "$(caseid) good to go email sent."
