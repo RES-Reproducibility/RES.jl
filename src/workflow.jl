@@ -116,25 +116,34 @@ function lw1()
     end
 end
 
-macro lw(r...)
-    if isempty(r)
-        quote 
-            @chain d[] begin
-                subset(:de_comments =>ByRow(==("waiting")))
-                select(:case_id,:round,:status,:arrival_date_package,:email)
+function lw(;r = nothing)
+    if isnothing(r)
+        x = @chain d[] begin
+            subset(:de_comments =>ByRow(==("waiting")))
+            select(:case_id,:round,:status,:arrival_date_package,:email,:ms,:editor)
+        end
+        mss = unique(Array(select(subset(x,:round => ByRow(x -> parse(Int,x) > 1)), :ms)))
+        @chain d[] begin
+            subset(:ms => ByRow(∈(mss)))
+            groupby(:ms)
+            combine([:round,:date_processed] => ((x,y) -> Dates.today() .- Dates.Date.(y[parse.(Int,x) .== (maximum(parse.(Int,x))-1)], gs_dates())) => :days_waiting)
+            outerjoin(x, on = :ms)
+            select(:days_waiting,:case_id,:round,:email,:ms, :editor)
+            sort!(:days_waiting)
+            @aside @chain _ begin
+                dropmissing()
+                CSV.write(joinpath(@__DIR__,"..","waiting_packages.csv"),_)
             end
         end
+            # select(:case_id,:round,:status,:arrival_date_package,:email,:days_waiting)
     else
-        quote
             @chain d[] begin
-                subset(:de_comments => ByRow(==("waiting")), :round => ByRow(==($(r[1]))))
+                subset(:de_comments => ByRow(==("waiting")), :round => ByRow(==(r)))
                 select(:case_id,:round,:status,:arrival_date_package,:email)
             end
-        end
     end        
 end
 
-gs_dates
 
 """
 List Replicator Ongoing time

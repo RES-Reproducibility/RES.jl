@@ -13,6 +13,7 @@ using Dates
 using Term.Prompts
 import Pkg.generate
 using Humanize
+using CSV
 
 include("dropbox.jl")
 include("gsheets.jl")
@@ -63,7 +64,7 @@ end
 # exports
 export db_auth, Authorization, DropboxError
 export @list, @ln, assign, update_ej, pw, ar, reload_all, g2g, md5
-export @lb, @handler, @find
+export @lb, @handler, @find, @lw
 
 
 end
