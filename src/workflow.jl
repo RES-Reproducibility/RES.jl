@@ -49,7 +49,7 @@ macro find(n)
     quote
         @chain d[] begin
             subset(:case_id => ByRow( contains($n)) )
-            select(:case_id,:round,:status,:checker1,:email)
+            select(:case_id,:round,:status,:checker1,:email,:email_2)
         end
     end
 end
@@ -112,7 +112,7 @@ list waiting papers.
 function lw1()
     @chain d[] begin
         subset(:de_comments => ByRow(==("waiting")), :round => ByRow(==("1")))
-        select(:case_id,:round,:status,:arrival_date_package,:email)
+        select(:case_id,:round,:status,:arrival_date_package,:email,:email_2)
     end
 end
 
@@ -253,7 +253,7 @@ function zg2g(caseid,DOI)
     i.doi_zenodo .= DOI
     update!(client, CellRange(sheet,"List!A$(i.row_number[1]):$(ej_ranges()["maxcol"])$(i.row_number[1])"), Array(i))
 
-    R"RESr:::ej_zg2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round))"
+    R"RESr:::ej_zg2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.email_2),$(i.ms),$(i.round))"
     @info "$(caseid) zenodo good to go email sent."
 
 
@@ -355,7 +355,7 @@ function g2g(caseid; copy = true, draft = false)
     if copy cp(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid), joinpath(ENV["JL_DB_EJ"], "EJ-6-good-to-go", caseid), force = true) end
 
 
-    R"RESr:::ej_g2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.ms),$(i.round), draft = $(draft))"
+    R"RESr:::ej_g2g($(strip(i.firstname[1])),$(i.lastname),$(i.email),$(i.email_2),$(i.ms),$(i.round), draft = $(draft))"
 
 
     @info "$(caseid) good to go email sent."
@@ -545,7 +545,7 @@ function flow_rnrs()
         tmp_url = fr_dict[fname]["url"]
 
         # send email via R
-        R"RESr:::ej_randr($(strip(i.firstname)),$(split(i.lastname)[1]),$(i.email),$(i[:ms]),$(i.title),$(tmp_url),$(j.round))"
+        R"RESr:::ej_randr($(strip(i.firstname)),$(split(i.lastname)[1]),$(i.email),$(i.email_2),$(i[:ms]),$(i.title),$(tmp_url),$(j.round))"
 
 
         # modify current round and write on spreadsheet. index j!
@@ -629,7 +629,7 @@ function quick_rnr(caseid::Vector{String})
         tmp_url = fr_dict[fname]["url"]
 
         # send email via R
-        R"RESr:::ej_randr($(strip(i.firstname)),$(split(i.lastname)[1]),$(i.email),$(i[:ms]),$(i.title),$(tmp_url),$(j.round), attachment = FALSE)"
+        R"RESr:::ej_randr($(strip(i.firstname)),$(split(i.lastname)[1]),$(i.email),$(i.email_2),$(i[:ms]),$(i.title),$(tmp_url),$(j.round), attachment = FALSE)"
 
 
         # modify current round and write on spreadsheet. index j!
@@ -686,21 +686,22 @@ function flow_file_requests()
 
         # clean email field
         i.email = replace(i.email, r"\n|\t" => "")
+        i.email_2 = replace(i.email_2, r"\n|\t" => "")
 
         # compute caseid
         i.cid = case_id(i.lastname,i.round,i.ms)
 
         # now write into main sheet
         # clean up this data first 
-        invec = collect(i[[:ms,:round,:firstname,:lastname,:cid,:title, :email, :editor, :data_policy, :arrival_date_ee,]])
+        invec = collect(i[[:ms,:round,:firstname,:lastname,:cid,:title, :email,:email_2, :editor, :data_policy, :arrival_date_ee,]])
         iinvec = replace(invec, "\t" => "", "\n" => "")
-        update!(client, CellRange(sheet,"List!A$(row_number):J$(row_number)"), reshape(strip.(iinvec), 1, :))
-        update!(client, CellRange(sheet,"List!M$(row_number):N$(row_number)"), ["waiting" fr_dict[fname]["id"]])
+        update!(client, CellRange(sheet,"List!A$(row_number):K$(row_number)"), reshape(strip.(iinvec), 1, :))
+        update!(client, CellRange(sheet,"List!N$(row_number):O$(row_number)"), ["waiting" fr_dict[fname]["id"]])
 
         tmp_url = fr_dict[fname]["url"]
 
         # send email via R
-        R"RESr:::ej_filerequest($(i[:firstname]),$(i[:email]),$(i[:ms]),$(tmp_url),draft = FALSE)"
+        R"RESr:::ej_filerequest($(i[:firstname]),$(i[:email]),$(i[:email_2]),$(i[:ms]),$(tmp_url),draft = FALSE)"
 
         # clear this row in new-arrivals
         clear!(client, CellRange(sheet, "New-Arrivals!A$(new_packages_row):I$(new_packages_row)"))

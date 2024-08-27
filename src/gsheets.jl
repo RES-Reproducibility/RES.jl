@@ -33,10 +33,10 @@ gs_readwrite() = sheets_client(AUTH_SCOPE_READWRITE)
 
 
 # EJ spreadsheet row and column constants
-ej_ranges() = Dict("maxcol" => "AD", 
-               "de_comments" => "M",
-               "dropbox_id" => "N",
-               "row_number" => "O",
+ej_ranges() = Dict("maxcol" => "AE", 
+               "de_comments" => "N",
+               "dropbox_id" => "O",
+               "row_number" => "P",
                "maxrow" => 1800,
                )
 ej_row_offset() = 900  # do not read first 900 rows
@@ -94,7 +94,7 @@ function get_new_arrivals(;journal = "EJ")
     else
         println("not done yet")
     end
-    s = get(gs_reader(), CellRange(sheet, "New-Arrivals!A2:I30"))
+    s = get(gs_reader(), CellRange(sheet, "New-Arrivals!A2:J30"))
     
     o = if size(s.values)[1] == 1
         DataFrame([k => String[] for k in s.values[1,:]])
