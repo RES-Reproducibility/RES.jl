@@ -116,6 +116,8 @@ function lw1()
     end
 end
 
+intparse(x::String) = x == "" ? missing : parse(Int,x) 
+
 function lw(;r = nothing)
     if isnothing(r)
         x = @chain d[] begin
@@ -123,10 +125,12 @@ function lw(;r = nothing)
             select(:case_id,:round,:status,:arrival_date_package,:email,:ms,:editor)
         end
         mss = unique(Array(select(subset(x,:round => ByRow(x -> parse(Int,x) > 1)), :ms)))
-        @chain d[] begin
+        @chain RES.d[] begin
+            transform(:round => (x -> intparse.(x)) => :round)
             subset(:ms => ByRow(∈(mss)))
             groupby(:ms)
-            combine([:round,:date_processed] => ((x,y) -> Dates.today() .- Dates.Date.(y[parse.(Int,x) .== (maximum(parse.(Int,x))-1)], gs_dates())) => :days_waiting)
+            # subset(:round => x -> x .== maximum(x)-1)
+            combine([:round,:date_processed] => ((x,y) -> Dates.today() .- Dates.Date.(y[x .== (maximum(x)-1)], gs_dates())) => :days_waiting)
             outerjoin(x, on = :ms)
             select(:days_waiting,:case_id,:round,:email,:ms, :editor)
             sort!(:days_waiting)
@@ -135,7 +139,6 @@ function lw(;r = nothing)
                 CSV.write(joinpath(@__DIR__,"..","waiting_packages.csv"),_)
             end
         end
-            # select(:case_id,:round,:status,:arrival_date_package,:email,:days_waiting)
     else
             @chain d[] begin
                 subset(:de_comments => ByRow(==("waiting")), :round => ByRow(==(r)))
@@ -334,7 +337,15 @@ function g2g(caseid; copy = true, draft = false)
 
     fsize = dirsize(joinpath(ENV["JL_DB_EJ"], "EJ-2-submitted-replication-packages", caseid))
     if fsize < 3000000
-        error("$caseid package has less than $(Humanize.datasize(fsize)) hence is probably online only in dropbox ATM")
+        @warn "$caseid package has less than $(Humanize.datasize(fsize)) hence is probably online only in dropbox ATM"
+        a = ask(DefaultPrompt(["y", "no"], 1, "Do you want to go ahead and send the good-to-go email anyway?"))
+    
+        if a == "y"
+            
+        else
+            error("first copy that package to good-to-go folder!")
+        end
+
     end
 
     # update corresponding row in google sheet
@@ -343,8 +354,8 @@ function g2g(caseid; copy = true, draft = false)
     client = gs_readwrite()
 
     #update row
-    i.date_processed .= string(Dates.today())
-    i.date_resub .= string(Dates.today())
+    i.date_processed .= Dates.format(Dates.today(), gs_dateformat())
+    i.date_resub .= Dates.format(Dates.today(), gs_dateformat())
     i.decision .= "A"
     i.decision_comment .= "accept"
     i.de_comments .= ""
@@ -407,7 +418,7 @@ function assign(caseid, repl_email; back = false, draft = false)
     client = gs_readwrite()
 
     #update row
-    i.date_assigned .= string(Dates.today())
+    i.date_assigned .= Dates.format(Dates.today(), gs_dateformat())
     i.checker1 .= row.replicator
     i.de_comments .= ""
     i.status .= "A"
@@ -452,7 +463,7 @@ function pw()
     for i in eachrow(cands)
         if db_fr_hasfile(db_au, i.dropbox_id)
             # update google sheet
-            i.arrival_date_package = string(Dates.today())
+            i.arrival_date_package = Dates.format(Dates.today(), gs_dateformat())
             i.de_comments = ""
             update!(client, CellRange(sheet,"List!A$(i.row_number):$(ej_ranges()["maxcol"])$(i.row_number)"), reshape(collect(i), 1, :))
             push!(o[:arrived], i.case_id)
@@ -551,7 +562,7 @@ function flow_rnrs()
         # modify current round and write on spreadsheet. index j!
         j.status = "R"
         j.case_id = case_id(j.lastname,j.round,j.ms)
-        j.date_processed = string(Dates.today())
+        j.date_processed = Dates.format(Dates.today(), gs_dateformat())
         j.decision = "R"
         j.decision_comment = "resubmit"
 
@@ -635,7 +646,7 @@ function quick_rnr(caseid::Vector{String})
         # modify current round and write on spreadsheet. index j!
         j.status = "R"
         j.case_id = case_id(j.lastname,j.round,j.ms)
-        j.date_processed = string(Dates.today())
+        j.date_processed = Dates.format(Dates.today(), gs_dateformat())
         j.decision = "R"
         j.decision_comment = "resubmit"
 
