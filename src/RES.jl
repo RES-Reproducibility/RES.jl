@@ -37,10 +37,19 @@ end
 function __init__()
 
     @info "Welcome to RES.jl"
+    @info "First tell us which journal you are handling in this session."
 
-    @info "type 2 to reload ejdataeditor@gmail.com credentials, 1 to get new ones"
-    R"gmailr::gm_auth_configure()"
-    R"gmailr::gm_auth()"
+    a = ask(DefaultPrompt(["EJ", "EctJ"], 1, "Which Journal are you working on?"))
+    if a == "EJ"
+        global journal = "EJ"
+    elseif a == "EctJ"
+        global journal = "EctJ"
+    else
+        error("has to be either EJ or EctJ")
+    end
+
+    @info "Setting up email"
+    R"RESr:::auth($journal)"
 
     if !haskey(ENV, "RES_PROD")
         @info "Running in test mode"
