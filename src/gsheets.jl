@@ -91,6 +91,32 @@ function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_ranges(
     d
 end
 
+
+"gets new arrivals from the editorial office"
+function get_arrivals_new(;journal = "EJ")
+    if journal == "EJ"
+        sheet = Spreadsheet(EJ_id())
+    else
+        println("not done yet")
+    end
+    s = get(gs_reader(), CellRange(sheet, "arrivals"))
+    
+    o = DataFrame(s.values[2:end,:], s.values[1,:])
+    rename!(o, ["arrival_date_de","ms","title","arrival_date_ee","firstname_author","lastname_author","email_author","email_author2","editor","comments"])
+    o[!,:arrival_date_de] = Date.(o[!,:arrival_date_de], dateformat"d/m/YYYY H:M:S")
+    o[!,:arrival_date_ee] = Date.(o[!,:arrival_date_ee], dateformat"d/m/YYYY")
+    transform!(o, 
+        [:email_author2, :comments] .=> (x -> replace(x, "" => missing)) .=> [:email_author2, :comments],
+        # [:email_author, :email_author2] .=> (x -> replace(x, r"\n|\t" => "")) .=> [:email_author, :email_author2]
+        [:firstname_author, :lastname_author] .=> (x -> strip.(x, ['\n','\t',' '])) .=> [:firstname_author, :lastname_author]
+        )
+    # clean out tabs and linebreaks from entire dataframe
+    mapcols!(x -> replace(x, "\t" => "","\t" => ""),o)
+    o
+end
+
+# join( [join([s.values[i,j] for j in axes(s.values, 2)], '\t') for i in axes(s.values, 1)], '\n')
+
 function get_new_arrivals(;journal = "EJ")
     if journal == "EJ"
         sheet = Spreadsheet(EJ_id())
