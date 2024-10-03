@@ -80,10 +80,11 @@ function gs_read(;journal = "EJ", range = "List!A$(ej_row_offset()):$(ej_ranges(
     mydate(x) = Date(x, "d-u-yyyy")
     mydatemissing(x) = passmissing(mydate) 
 
+
     # fix up dates would look like this (not doing this now)
     # transform!(d,
-    #     [:date_assigned, :date_completed] .=> (y -> passmissing.(ifelse.(y .== "", missing, y))) .=>
-    #     [:date_assigned, :date_completed]
+    #     [:arrival_date_package, :arrival_date_ee, :date_assigned, :date_completed] .=> (y -> passmissing.(dateparse.(y))) .=>
+    #     [:arrival_date_package, :arrival_date_ee, :date_assigned, :date_completed]
     #     )
 
     select!(d, Not(:case_id2))
