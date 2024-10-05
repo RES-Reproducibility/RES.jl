@@ -116,7 +116,7 @@ function lw1()
     end
 end
 
-intparse(x::String) = x == "" ? missing : parse(Int,x) 
+missparse(x::String,T::Type) = x == "" ? missing : parse(T,x) 
 function dateparse(x::String) 
     if x == ""
         missing
@@ -134,18 +134,23 @@ function dateparse(x::String)
     end
 end
 
-
 """
 filter published papers
 """
-filter_published(x::DataFrame) = subset(x, :status => ByRow(x -> x .∈ Ref(["AP","NT","nt", "P", "p"])))
+published(x::DataFrame) = subset(x, :status => ByRow(x -> x .∈ Ref(["AP","NT","nt", "P", "p"])))
+
+"""
+filter unpublished papers
+"""
+unpublished(x::DataFrame) = subset(x, :status => ByRow(x -> x .∉ Ref(["AP","NT","nt", "P", "p"])))
+
 
 """
 list unpublished packages which have more than `rounds` rounds
 """
-function packages_round(rounds::Int)
-    published = @chain d[] begin
-        filter_published(_)
+function unpublished_round(d::DataFrame,rounds::Int)
+    pubd = @chain d begin
+        published(_)
         Array(select(_,:ms))
         unique(_)
     end
@@ -153,29 +158,12 @@ function packages_round(rounds::Int)
         # x[, arrival_date := as.Date(max(arrival_date_ee, arrival_date_package,na.rm = TRUE)), by = .(ms, round)]
         # x[(!is.finite(arrival_date)) | is.na(arrival_date) , arrival_date := date_assigned]
 
-
-    
-    # return published
-    @chain d[] begin
-        transform(
-        [:arrival_date_package, :arrival_date_ee, :date_assigned, :date_completed] .=> (y -> dateparse.(y)) .=>
-        [:arrival_date_package, :arrival_date_ee, :date_assigned, :date_completed]
-        )
-        subset(:ms => ByRow(x -> x ∉ published))
-        subset(:round => ByRow(x -> x != ""))
-        transform(:round => ByRow(intparse) => :round)
-        groupby([:ms,:round])
-        transform(AsTable([:arrival_date_ee, :arrival_date_package, :date_assigned]) .=> ByRow(x -> maximum(skipmissing(x),init = missing)) => :arrival_date)
-        groupby(:ms)
-        transform( :arrival_date => ( x -> x .== minimum(x)) => :first_arrival)
-        groupby(:ms)
-
-        subset(:round => (x -> x .== maximum((x))))
+    # return not published
+    @chain d begin
+        subset(:ms => ByRow(x -> x ∉ pubd))
         subset(:round => ByRow(>(rounds)))
-        transform(:first_arrival => (x -> Dates.today() .- x) => :days_with_de)
-        # select(:case_id,:round,:status,:arrival_date_ee, :arrival_date_package, :date_assigned,:arrival_date)
-        select(:case_id,:round,:email,:ms,:editor)
-        unique(_)
+        select(:case_id,:round,:editor,:first_contact_de)
+        sort(:first_contact_de,rev = true)
     end
 end
 
@@ -187,7 +175,7 @@ function lw(;r = nothing)
         end
         mss = unique(Array(select(subset(x,:round => ByRow(x -> parse(Int,x) > 1)), :ms)))
         @chain RES.d[] begin
-            transform(:round => (x -> intparse.(x)) => :round)
+            transform(:round => (x -> missparse.(x,Int)) => :round)
             subset(:ms => ByRow(∈(mss)))
             groupby(:ms)
             # subset(:round => x -> x .== maximum(x)-1)

@@ -19,6 +19,7 @@ include("dropbox.jl")
 include("gsheets.jl")
 include("workflow.jl")
 include("snippets.jl")
+include("merging.jl")
 
 
 # package-wide variables
